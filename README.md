@@ -71,10 +71,11 @@ SkylineA2A/
 └── docs/                  ← monetization narrative + customer talking points
 ```
 
-> **Two virtual environments.** Demo 1 needs `a2a-sdk 1.0.x` (Foundry's A2A v0.3
-> protocol uses gRPC/protobuf bindings); Demo 2 transitively pins `a2a-sdk<0.3.24`
-> via `agent-framework-a2a` beta. They cannot coexist in one venv, so the repo
-> has no shared root `requirements.txt` — each demo owns its own.
+> **Two virtual environments.** Both demos use `a2a-sdk 1.0.x`, but Demo 2
+> pulls in the heavy `agent-framework-*` dependency chain (installed from a
+> pinned GitHub commit — see [`demo2-maf/requirements.txt`](demo2-maf/requirements.txt)).
+> Keeping the venvs separate makes each walkthrough self-contained. Each
+> demo owns its own `requirements.txt`; there is no shared root file.
 
 ## Quickstart (high-level)
 

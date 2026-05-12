@@ -255,13 +255,13 @@ if __name__ == "__main__":
     server = Starlette(
         routes=[
             *create_agent_card_routes(public_agent_card),
-            *create_jsonrpc_routes(request_handler),
+            *create_jsonrpc_routes(request_handler, rpc_url="/"),
         ]
     )
 
     print("Starting DevOpsHelper A2A server")
     print(f"  Public URL : {public_url}")
-    print(f"  Agent card : {public_url}.well-known/agent.json")
+    print(f"  Agent card : {public_url}.well-known/agent-card.json")
     print(f"  JSON-RPC   : {public_url}  (POST)")
     print()
 

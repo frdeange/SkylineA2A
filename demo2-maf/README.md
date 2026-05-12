@@ -22,11 +22,15 @@ The model is served by the same Foundry project as Demo 1
 
 ## Install (separate venv)
 
-Demo 2 uses `agent-framework-a2a` (beta), which pins `a2a-sdk<0.3.24`. Demo 1
-needs `a2a-sdk 1.0.x` for the Foundry A2A protocol. **They cannot coexist** —
-use a dedicated venv for each demo.
+`agent-framework-a2a` is installed **from a git commit on `main`** (commit
+`cfd3dfe`, which includes PR
+[#5752 — "Migrate agent-framework-a2a to a2a-sdk v1.0"](https://github.com/microsoft/agent-framework/pull/5752)).
+The PyPI wheel (`1.0.0b260507`) is older and still pins `a2a-sdk<0.3.24`,
+so it cannot use the canonical sample's API. Pinning to a commit SHA keeps
+the install reproducible while letting us use the v1.0 server API.
 
-From the repo root:
+Demo 2 still uses its own venv (separate from Demo 1) because of the heavy
+`agent-framework-*` dependency chain. From the repo root:
 
 ```powershell
 python -m venv .venv-demo2
@@ -34,7 +38,9 @@ python -m venv .venv-demo2
 pip install --pre -r demo2-maf\requirements.txt
 ```
 
-`--pre` is required: `agent-framework-a2a==1.0.0b260507` is a pre-release.
+`--pre` is kept because the resolved `agent-framework-a2a` version
+(`1.0.0b260507`) is still a pre-release identifier even when installed
+from git.
 
 ## Run locally
 
@@ -50,7 +56,7 @@ The server starts at `http://localhost:9999/` and prints its public URL.
 
 | Path | Method | Notes |
 |---|---|---|
-| `/.well-known/agent.json` | GET | A2A agent card |
+| `/.well-known/agent-card.json` | GET | A2A agent card |
 | `/` | POST | JSON-RPC A2A protocol |
 
 ## Smoke test
@@ -80,7 +86,7 @@ A bare `curl` against the local card is also useful to confirm the server is
 even up:
 
 ```powershell
-curl http://localhost:9999/.well-known/agent.json
+curl http://localhost:9999/.well-known/agent-card.json
 ```
 
 ## Next phase: ACA behind APIM

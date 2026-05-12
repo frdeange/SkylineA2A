@@ -42,21 +42,32 @@ async def main() -> None:
         agent_card=agent_card,
         url=base_url,
     ) as agent:
-        print("\n--- Non-streaming: deployment status ---")
-        response = await agent.run("Is api-frontend healthy in prod?")
-        for message in response.messages:
-            print(f"  {message.text}")
+        # Streaming is the natural model for A2A v1.0 (the canonical sample
+        # uses it for tool-using turns: artifacts arrive as SSE chunks and
+        # the client surfaces them as AgentResponseUpdate.contents).
+        # We use streaming for both prompts here — one per tool — so this
+        # smoke test exercises both Check_Deployment_Status and Restart_Service.
 
-        print("\n--- Streaming: restart service ---")
-        stream = agent.run("Please restart order-service in staging.", stream=True)
-        async for update in stream:
-            for content in update.contents:
-                if content.text:
-                    print(f"  {content.text}")
-        final = await stream.get_final_response()
-        print(f"\nFinal streaming response ({len(final.messages)} message(s)):")
-        for message in final.messages:
-            print(f"  {message.text}")
+        async def run_streaming(prompt: str, label: str) -> None:
+            print(f"\n--- {label} ---")
+            print(f"> {prompt}")
+            stream = agent.run(prompt, stream=True)
+            async for update in stream:
+                for content in update.contents:
+                    text = getattr(content, "text", None)
+                    if text:
+                        print(f"  {text}")
+            final = await stream.get_final_response()
+            print(f"  (final: {len(final.messages)} message(s))")
+
+        await run_streaming(
+            "Is api-frontend healthy in prod?",
+            "Check_Deployment_Status",
+        )
+        await run_streaming(
+            "Please restart order-service in staging.",
+            "Restart_Service",
+        )
 
 
 if __name__ == "__main__":
