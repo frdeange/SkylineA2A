@@ -1,0 +1,45 @@
+<policies>
+  <inbound>
+    <base />
+    <!-- Route APIM /demo1/* to the Foundry A2A runtime endpoint. -->
+    <set-backend-service
+      base-url="https://skylinea2a-foundry.services.ai.azure.com/api/projects/skylinea2a-project/agents/FoundryAgent-MSExpert/endpoint/protocols/a2a" />
+
+    <!--
+      Foundry exposes its card at /agentCard/v0.3 (camel-case), while APIM
+      publishes /agent-card.json. Map between both paths explicitly.
+    -->
+    <choose>
+      <when condition="@(
+          context.Request.OriginalUrl.Path.ToString().ToLowerInvariant().EndsWith(&quot;/agent-card.json&quot;)
+      )">
+        <rewrite-uri template="/agentCard/v0.3" />
+      </when>
+      <otherwise>
+        <!-- JSON-RPC requests for this API are sent to the runtime root. -->
+        <rewrite-uri template="/" />
+      </otherwise>
+    </choose>
+
+    <!--
+      Foundry A2A runtime expects AAD audience https://ai.azure.com
+      (not cognitiveservices.azure.com).
+    -->
+    <authentication-managed-identity resource="https://ai.azure.com" />
+
+    <!-- Keep APIM subscription key at the gateway; don't forward to backend. -->
+    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
+  </inbound>
+
+  <backend>
+    <base />
+  </backend>
+
+  <outbound>
+    <base />
+  </outbound>
+
+  <on-error>
+    <base />
+  </on-error>
+</policies>

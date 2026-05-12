@@ -1,0 +1,32 @@
+# ═════════════════════════════════════════════════════════════════════════════
+#  Demo 2 — Docker build context exclusions
+#  Keeps the build context tiny and prevents secrets from leaking into images.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# Virtualenvs (parent venvs live one level up but be defensive)
+.venv-demo2/
+.venv*/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Local-only scripts (not needed inside the container)
+run-local.ps1
+run-smoke.ps1
+smoke_test.py
+
+# Docs and local artifacts
+README.md
+*.md
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Never bundle secrets
+.env
+.env.*
+!.env.example

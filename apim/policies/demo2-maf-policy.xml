@@ -1,0 +1,73 @@
+<policies>
+  <inbound>
+    <base />
+    <!-- Route APIM /demo2/* to the Container App runtime endpoint. -->
+    <set-backend-service
+      base-url="https://skylinea2a-mafagent.whitebay-9ca39091.swedencentral.azurecontainerapps.io" />
+
+    <choose>
+      <when condition="@(
+          context.Request.OriginalUrl.Path.ToString().ToLowerInvariant().EndsWith(&quot;/agent-card.json&quot;)
+      )">
+        <rewrite-uri template="/.well-known/agent-card.json" />
+      </when>
+      <otherwise>
+        <!-- JSON-RPC runtime root -->
+        <rewrite-uri template="/" />
+      </otherwise>
+    </choose>
+
+    <!-- Keep APIM subscription key at the gateway; don't forward to backend. -->
+    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
+  </inbound>
+
+  <backend>
+    <base />
+  </backend>
+
+  <outbound>
+    <base />
+    <!--
+      Strategy #2: keep ACA DEMO2_PUBLIC_URL unchanged and rewrite the card at APIM.
+      This makes APIM the advertised runtime URL for discovery clients.
+    -->
+    <choose>
+      <when condition="@(
+          context.Response != null &&
+          context.Response.StatusCode == 200 &&
+          context.Request.OriginalUrl.Path.ToString().ToLowerInvariant().EndsWith(&quot;/agent-card.json&quot;)
+      )">
+        <set-body>@{
+            var body = context.Response.Body.As&lt;string&gt;(preserveContent: true);
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return body;
+            }
+
+            var j = Newtonsoft.Json.Linq.JObject.Parse(body);
+            var baseUrl = context.Request.OriginalUrl.Scheme + "://" + context.Request.OriginalUrl.Host + "/" + context.Api.Path.Trim('/') + "/";
+            var cardUrl = baseUrl + "agent-card.json";
+
+            // APIM A2A schema can expose either "url" or "agentCardUrl" depending on source/version.
+            j["url"] = cardUrl;
+            j["agentCardUrl"] = cardUrl;
+
+            var interfaces = j["supportedInterfaces"] as Newtonsoft.Json.Linq.JArray;
+            if (interfaces != null)
+            {
+                foreach (var item in interfaces.OfType&lt;Newtonsoft.Json.Linq.JObject&gt;())
+                {
+                    item["url"] = baseUrl;
+                }
+            }
+
+            return j.ToString(Newtonsoft.Json.Formatting.None);
+        }</set-body>
+      </when>
+    </choose>
+  </outbound>
+
+  <on-error>
+    <base />
+  </on-error>
+</policies>

@@ -61,21 +61,21 @@ The server starts at `http://localhost:9999/` and prints its public URL.
 
 ## Smoke test
 
-Once the server is running, in a second terminal (same `.venv-demo2` activated)
-run the smoke test:
+Once the server is running, in a second terminal use the wrapper that calls
+the venv's Python directly (so you don't need to remember to activate):
 
 ```powershell
-.\.venv-demo2\Scripts\Activate.ps1
-python demo2-maf\smoke_test.py
+.\demo2-maf\run-smoke.ps1
 ```
 
 [`smoke_test.py`](./smoke_test.py) mirrors the canonical
 [`agent_with_a2a.py`](https://github.com/microsoft/agent-framework/blob/main/python/samples/04-hosting/a2a/agent_with_a2a.py)
-client sample: it resolves the AgentCard, wraps it in an `A2AAgent`, sends a
-non-streaming prompt (`Is api-frontend healthy in prod?` — exercises
-`check_deployment_status`) and a streaming prompt (`Please restart
-order-service in staging.` — exercises `restart_service`) and prints both
-responses.
+client sample: it resolves the AgentCard, wraps it in an `A2AAgent`, and sends
+two streaming prompts — one per tool (`Is api-frontend healthy in prod?` →
+`check_deployment_status`, `Please restart order-service in staging.` →
+`restart_service`). Streaming is the natural model for A2A v1.0 tool-using
+turns: the executor pushes the tool result as a task `artifact` and the model's
+final answer arrives as SSE chunks.
 
 It points at `DEMO2_PUBLIC_URL` (defaults to `http://localhost:9999/`), so the
 same script also works against the ACA endpoint later — just change the env
@@ -89,9 +89,68 @@ even up:
 curl http://localhost:9999/.well-known/agent-card.json
 ```
 
-## Next phase: ACA behind APIM
+## Container: build and push to ACR
 
-Docker, ACR, ACA, and APIM are intentionally out of scope for this local
-phase. The same `mafagent.py` runs in the container — the only difference
-is the value of `DEMO2_PUBLIC_URL` (set to the ACA FQDN) so the agent card
-advertises the right public URL.
+The same `mafagent.py` runs unchanged inside a container — the only
+difference is the value of `DEMO2_PUBLIC_URL` (set to the ACA FQDN, and later
+to the APIM URL) so the agent card advertises the right public URL.
+
+> **Required runtime env vars on ACA** (no secrets — Managed Identity covers
+> auth):
+> | Variable | Notes |
+> |---|---|
+> | `FOUNDRY_PROJECT_ENDPOINT` | Full Foundry project endpoint (see Demo 1). |
+> | `FOUNDRY_DEPLOYMENT_NAME` | `gpt-5.2`. |
+> | `DEMO2_PUBLIC_URL` | The public URL the agent card should advertise. **Default is `http://localhost:9999/`** — leave that and the card will point to nothing useful once it sits behind APIM. |
+> | `AZURE_CLIENT_ID` | Only if the Container App uses a **user-assigned** managed identity. |
+>
+> The ACA managed identity must have **Azure AI User** on the Foundry
+> resource (or Cognitive Services User as a fallback).
+>
+> ACA probes are **separate** from the Dockerfile `HEALTHCHECK` — the
+> in-image one is only used by `docker run` locally. Define a startup probe
+> on the Container App with at least 60–120 s tolerance pointing at
+> `/.well-known/agent-card.json`, and reuse the same path for readiness and
+> liveness.
+
+Prerequisites:
+
+- `az login` against the subscription that owns ACR.
+- `AcrPush` role on the ACR resource for the signed-in identity.
+- `ACR_NAME`, `ACR_LOGIN_SERVER`, and `ACR_IMAGE_NAME` set in
+  [`../.env`](../.env.example).
+  (`ACR_IMAGE_NAME` must be a lowercase Docker repository name).
+
+Then from the repo root:
+
+```powershell
+.\demo2-maf\docker-build-push.ps1
+```
+
+This script uses **remote build in ACR** (`az acr build`), so local Docker is
+not required.
+
+The script tags the image twice: `:<ACR_IMAGE_TAG>` (default `latest`) and
+`:sha-<git-short-sha>` for traceability. Both tags are pushed so an ACA
+revision can be pinned to a known SHA.
+
+Build only (no push) for a quick sanity check:
+
+```powershell
+.\demo2-maf\docker-build-push.ps1 -SkipPush
+```
+
+## Next phase: Container Apps + APIM
+
+After `docker-build-push.ps1` succeeds:
+
+1. **Create the ACA** referencing the pushed image. Enable a system-assigned
+   managed identity and grant it **Azure AI User** on the Foundry resource.
+2. **Set env vars** on the ACA: `FOUNDRY_PROJECT_ENDPOINT`,
+   `FOUNDRY_DEPLOYMENT_NAME=gpt-5.2`, and `DEMO2_PUBLIC_URL=<final-public-url>`.
+3. **Update `.env`** with `ACA_FQDN` so the APIM phase can wire the backend.
+
+The agent card advertised by `mafagent.py` is whatever `DEMO2_PUBLIC_URL`
+says, so when APIM fronts this backend, set `DEMO2_PUBLIC_URL` to the APIM
+base path (`https://apim-skyline.azure-api.net/demo2/`) — that way clients
+discovering the card always see the gateway URL, not the ACA URL.
