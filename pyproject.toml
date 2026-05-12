@@ -1,0 +1,30 @@
+[project]
+name = "skyline-a2a"
+version = "0.1.0"
+description = "Two flavours of A2A-compliant agents (Foundry + Microsoft Agent Framework) monetized via Azure API Management."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "SkylineA2A demo" }]
+
+# Dependencies live in per-demo requirements.txt files because Demo 1
+# (a2a-sdk 1.0.x for the Foundry client) and Demo 2 (a2a-sdk 0.3.x pinned by
+# agent-framework-a2a beta) are mutually incompatible. Install per demo:
+#
+#   python -m venv .venv-demo1
+#   .\.venv-demo1\Scripts\Activate.ps1
+#   pip install --pre -r demo1-foundry\requirements.txt
+#
+#   python -m venv .venv-demo2
+#   .\.venv-demo2\Scripts\Activate.ps1
+#   pip install --pre -r demo2-maf\requirements.txt
+#
+# This pyproject.toml is kept as a tooling-config root (ruff, etc.) only.
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
