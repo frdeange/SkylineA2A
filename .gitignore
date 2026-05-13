@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 .venv-*
 /presentation
+/presentation/*
+*.pptx
 
 # C extensions
 *.so
